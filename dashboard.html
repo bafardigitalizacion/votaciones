@@ -445,7 +445,19 @@
         .proponente:hover {
             text-decoration: none;
         }
-        
+
+        /* Estilos para enlace de votos (clickeable) */
+            .votos-link {
+                color: var(--primary-color);
+                text-decoration: underline;
+                cursor: pointer;
+                font-weight: 500;
+            }
+
+            .votos-link:hover {
+                text-decoration: none;
+            }
+                    
         /* Estilos para inputs de búsqueda */
         .search-container {
             display: flex;
@@ -863,6 +875,42 @@
             </div>
         </div>
     </div>
+
+
+    <!-- Modal para detalles de los votantes -->
+<div class="modal-overlay" id="votantes-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 class="modal-title">Detalle de Votantes</h3>
+            <button class="modal-close" id="close-votantes-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="detail-item">
+                <div class="detail-label">Propuesta:</div>
+                <div class="detail-value" id="modal-propuesta-nombre">--</div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-label">Total de Votos:</div>
+                <div class="detail-value" id="modal-total-votos">--</div>
+            </div>
+            <div class="detail-label">Listado de Votantes:</div>
+            <div class="table-container" style="max-height: 300px; overflow-y: auto; margin-top: 10px;">
+                <table style="width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Tienda</th>
+                            <th>Fecha de Voto</th>
+                        </tr>
+                    </thead>
+                    <tbody id="votantes-list">
+                        <!-- Aquí se cargarán dinámicamente los votantes -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
     
     <!-- Chart.js para gráficas -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -1034,7 +1082,7 @@
                         <td><span class="ranking ${rankingClass}">${position}</span></td>
                         <td>${propuesta.nombre || 'Sin nombre'}</td>
                         <td><span class="proponente" data-id="${propuesta.id}">${proponente.nombre || 'Desconocido'}</span></td>
-                        <td>${propuesta.votos || 0}</td>
+                       <td><span class="votos-link" data-id="${propuesta.id}">${propuesta.votos || 0}</span></td>
                         <td>${formatDate(ultimoVoto.fechaVoto)}</td>
                     `;
                     
@@ -1046,6 +1094,14 @@
                 document.querySelectorAll('.proponente').forEach(element => {
                     element.addEventListener('click', showProponenteDetails);
                 });
+
+
+                                // Añadir eventos a los enlaces de votos
+                document.querySelectorAll('.votos-link').forEach(element => {
+                    element.addEventListener('click', showVotantesDetails);
+                });
+
+
             } catch (error) {
                 console.error("Error al cargar top propuestas:", error);
                 document.getElementById('top-propuestas-body').innerHTML = 
@@ -1103,6 +1159,63 @@
                 toggleLoader(topLoader, false);
             }
         }
+
+
+        // Función para mostrar detalles de los votantes
+async function showVotantesDetails() {
+    const propuestaId = this.getAttribute('data-id');
+    toggleLoader(topLoader, true);
+    
+    try {
+        // Obtener la propuesta
+        const propuestaRef = doc(db, 'propuestas', propuestaId);
+        const propuestaDoc = await getDoc(propuestaRef);
+        
+        if (!propuestaDoc.exists()) {
+            alert("No se encontró la propuesta");
+            toggleLoader(topLoader, false);
+            return;
+        }
+        
+        const propuesta = propuestaDoc.data();
+        
+        // Obtener todos los votos para esta propuesta
+        const votosRef = collection(db, 'votos');
+        const votantesQuery = query(votosRef, where('propuestaId', '==', propuestaId), orderBy('fechaVoto', 'desc'));
+        const votantesSnapshot = await getDocs(votantesQuery);
+        
+        // Actualizar contenido del modal
+        document.getElementById('modal-propuesta-nombre').textContent = propuesta.nombre || 'No disponible';
+        document.getElementById('modal-total-votos').textContent = propuesta.votos || 0;
+        
+        // Llenar la tabla de votantes
+        const votantesList = document.getElementById('votantes-list');
+        votantesList.innerHTML = '';
+        
+        if (votantesSnapshot.empty) {
+            votantesList.innerHTML = '<tr><td colspan="3" style="text-align: center;">No hay información de votantes</td></tr>';
+        } else {
+            votantesSnapshot.forEach(doc => {
+                const voto = doc.data();
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${voto.nombre || 'No disponible'}</td>
+                    <td>${voto.tienda || 'No disponible'}</td>
+                    <td>${formatDate(voto.fechaVoto)}</td>
+                `;
+                votantesList.appendChild(row);
+            });
+        }
+        
+        // Mostrar modal
+        document.getElementById('votantes-modal').classList.add('active');
+    } catch (error) {
+        console.error("Error al obtener detalles de los votantes:", error);
+        alert("Error al cargar detalles de votantes. Intenta nuevamente.");
+    } finally {
+        toggleLoader(topLoader, false);
+    }
+}
 
 
 
@@ -1390,6 +1503,19 @@
             proponenteModal.addEventListener('click', (e) => {
                 if (e.target === proponenteModal) {
                     proponenteModal.classList.remove('active');
+                }
+            });
+
+
+            // Cerrar modal de votantes
+            document.getElementById('close-votantes-modal').addEventListener('click', () => {
+                document.getElementById('votantes-modal').classList.remove('active');
+            });
+
+            // Cerrar modal de votantes al hacer clic fuera
+            document.getElementById('votantes-modal').addEventListener('click', (e) => {
+                if (e.target === document.getElementById('votantes-modal')) {
+                    document.getElementById('votantes-modal').classList.remove('active');
                 }
             });
             
