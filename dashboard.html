@@ -840,6 +840,7 @@
                 <div class="modal-header">
                     <h3 class="modal-title">Detalles del Proponente</h3>
                     <button class="modal-close" id="close-modal">&times;</button>
+
                 </div>
                 <div class="modal-body">
                     <div class="detail-item">
@@ -1001,12 +1002,16 @@
                 const propuestasSnapshot = await getDocs(propuestasRef);
                 const totalPropuestas = propuestasSnapshot.size;
                 
-                // Contar votos (total de documentos en la colección votos)
-                const votosRef = collection(db, 'votos');
-                const votosSnapshot = await getDocs(votosRef);
-                const totalVotos = votosSnapshot.size;
+                // Contar votos (sumando los votos de cada propuesta) en lugar de contar documentos en la colección votos
+                let totalVotosActivos = 0;
+                propuestasSnapshot.forEach(doc => {
+                    const propuestaData = doc.data();
+                    totalVotosActivos += propuestaData.votos || 0;
+                });
                 
                 // Contar participantes únicos (empleados únicos en la colección votos)
+                const votosRef = collection(db, 'votos');
+                const votosSnapshot = await getDocs(votosRef);
                 const empleadosUnicos = new Set();
                 votosSnapshot.forEach(doc => {
                     const empleadoId = doc.data().empleadoId;
@@ -1016,7 +1021,7 @@
                 
                 // Actualizar UI
                 document.getElementById('total-propuestas').textContent = totalPropuestas;
-                document.getElementById('total-votos').textContent = totalVotos;
+                document.getElementById('total-votos').textContent = totalVotosActivos;
                 document.getElementById('total-participantes').textContent = totalParticipantes;
             } catch (error) {
                 console.error("Error al cargar estadísticas:", error);
@@ -1096,7 +1101,7 @@
                 });
 
 
-                                // Añadir eventos a los enlaces de votos
+                // Añadir eventos a los enlaces de votos
                 document.querySelectorAll('.votos-link').forEach(element => {
                     element.addEventListener('click', showVotantesDetails);
                 });
