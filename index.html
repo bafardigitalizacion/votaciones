@@ -384,31 +384,44 @@
             async function obtenerInfoProponente(propuestaId) {
                 try {
                     const votosRef = collection(db, 'votos');
-                    const q = query(votosRef, where('propuestaId', '==', propuestaId));
+                    // Modificar la consulta para buscar el primer voto (el del proponente original)
+                    // que corresponda a esta propuesta usando el propuestaId
+                    const q = query(
+                        votosRef, 
+                        where('propuestaId', '==', propuestaId), 
+                        orderBy('fechaVoto', 'asc')
+                    );
+                    
                     const snapshot = await getDocs(q);
                     
-                    // Buscar el primer voto para esta propuesta (debería ser el del proponente)
+                    // Verificar si hay resultados
                     if (!snapshot.empty) {
-                        const votoData = snapshot.docs[0].data();
-                        return {
-                            nombre: votoData.nombre || 'Anónimo',
-                            tienda: votoData.tienda || 'No especificada',
-                            fechaVoto: votoData.fechaVoto || null
-                        };
+                        // Obtener el primer documento (el voto más antiguo para esta propuesta)
+                        const proponenteDoc = snapshot.docs[0];
+                        const proponenteData = proponenteDoc.data();
+                        
+                        // Verificar si hay datos del proponente
+                        if (proponenteData) {
+                            return {
+                                nombre: proponenteData.nombre || 'Anónimo',
+                                tienda: proponenteData.tienda || 'No especificada',
+                                fechaVoto: proponenteData.fechaVoto || null
+                            };
+                        }
                     }
                     
-                    // Si no se encuentra información en Firebase, devolver datos de ejemplo
+                    console.log("No se encontró información del proponente para la propuesta:", propuestaId);
+                    // Si no hay datos, devolver valores por defecto
                     return {
-                        nombre: 'Participante',
-                        tienda: 'Tienda ejemplo',
+                        nombre: 'Anónimo',
+                        tienda: 'No especificada',
                         fechaVoto: { seconds: Date.now() / 1000 }
                     };
                 } catch (error) {
                     console.error("Error al obtener información del proponente:", error);
-                    // Devolver datos de ejemplo en caso de error
                     return {
-                        nombre: 'Participante',
-                        tienda: 'Tienda ejemplo',
+                        nombre: 'Error al obtener datos',
+                        tienda: 'No disponible',
                         fechaVoto: { seconds: Date.now() / 1000 }
                     };
                 }
